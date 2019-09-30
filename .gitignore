@@ -1,0 +1,12 @@
+.build
+/.previous-build
+xcuserdata
+.DS_Store
+*~
+\#*
+.\#*
+.*.sw[nop]
+*.xcscmblueprint
+/default.profraw
+.swiftpm
+Package.resolved

@@ -1,0 +1,21 @@
+//
+// Copyright © 2019 IZE Ltd. and the project authors
+// Licensed under MIT License
+//
+// See LICENSE.txt for license information.
+//
+
+syntax = "proto3";
+
+import "PBUUID.proto";
+
+// `Configuration` is used for configuring a Berkanan Bluetooth
+// service and describing it for others.
+message Configuration {
+  
+  // The required identifier of the configuration.
+  PBUUID identifier = 1;
+  
+  // The user info of the configuration for your additional custom data.  
+  bytes user_info = 2;
+}

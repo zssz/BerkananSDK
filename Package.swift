@@ -15,7 +15,7 @@ let package = Package(
       targets: ["BerkananSDK"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.6.0"),
+    .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.7.0"),
     .package(url: "https://github.com/zssz/BerkananFoundation", from: "1.0.0"),
     .package(url: "https://github.com/zssz/BerkananCompression", from: "1.0.0")
   ],

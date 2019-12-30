@@ -7,10 +7,13 @@
 
 syntax = "proto3";
 
+import "PBUUID.proto";
+
+// `User` is used for defining a user in a simple way.
 message User {
   
-  // The bytes of the uuid of the user in little endian order.
-  bytes uuid_bytes = 1;
+  // The identifier of the user.
+  PBUUID identifier = 1;
   
   // The name of the user.
   string name = 2;    

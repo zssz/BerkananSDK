@@ -1,0 +1,48 @@
+//
+// Copyright © 2019 IZE Ltd. and the project authors
+// Licensed under MIT License
+//
+// See LICENSE.txt for license information.
+//
+
+syntax = "proto3";
+
+import "PBUUID.proto";
+
+// `Message` is used for sending a message to a Berkanan
+// Bluetooth service.
+//
+// Berkanan SDK uses a flooding algorithm to deliver the
+// message. It uses the required `identifier` and the optional
+// `time_to_live` fields to reduce the number of duplicate
+// messages. If a received message is missing the `identifier`
+// field then it's ignored and discarded. When using the
+// convenience initializers, the value of `time_to_live` is set
+// to 15, meaning that the message will be discarded by the
+// 15th node receiving it.
+//
+// Both `source_address` and `destination_address` fields are
+// optional. The latter could be used to check if the `payload`
+// of the message is for your app. If it is then it can process
+// the `payload`, if it knows how to do that by looking at
+// `payload_type`.
+message Message {
+  
+  // The required identifier of the message.
+  PBUUID identifier = 1;
+  
+  // The time to live (hop limit) of the message.
+  int32 time_to_live = 2;
+  
+  // The source address of the message.
+  PBUUID source_address = 3;
+  
+  // The destination address of the message.
+  PBUUID destination_address = 4;
+  
+  // The payload type of the message.
+  PBUUID payload_type = 5;
+  
+  // The payload of the message.
+  bytes payload = 6;
+}

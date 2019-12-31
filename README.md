@@ -1,10 +1,10 @@
-# BerkananSDK
+# Berkanan SDK
 
 Berkanan SDK simplifies Bluetooth-powered messaging between nearby apps. It's the framework used by [Berkanan](https://apps.apple.com/us/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Lite](https://apps.apple.com/us/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)).
 
 With Berkanan SDK apps can discover nearby apps, which also have the SDK integrated, and send them small messages via Bluetooth, even while in the background. The range for messages is about 70 meters, but they can reach further because the SDK automatically resends them upon receiving. The more apps use Berkanan SDK, the bigger the network and further the reach of the messages gets.
 
-Features and Limitations
+### Features and Limitations
 - Free and open-source: Contributions are welcome!
 - Bluetooth-powered: No need for Wi-Fi or cellular connectivity.
 - Background: Works even while the app is in the background.
@@ -14,6 +14,9 @@ Features and Limitations
 - The data size limit is 512 bytes.
 - No built-in support for encryption, [acknowledgment](https://en.wikipedia.org/wiki/Acknowledgement_(data_networks)) or [store and forward](https://en.wikipedia.org/wiki/Store_and_forward); you have to roll your own if your use case requires it.
 - Supported operating systems: iOS v9.0 or later, macOS v10.13 or later.
+
+### Privacy Policy
+Berkanan SDK does not send the messages to any central server or company — this can be verified by looking at its source code. If your app's messages contain sensitive information (e.g., a private text message) you should use encryption.
 
 ## Integrating Berkanan SDK into Your App
 

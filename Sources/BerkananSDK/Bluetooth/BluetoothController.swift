@@ -76,8 +76,7 @@ class BluetoothController: NSObject {
     if !configuration.isValid() || configuration.isPDUTooBig() {
       throw CBATTError(.invalidPdu)
     }
-    self.dispatchQueue.async { [weak self] in
-      guard let self = self else { return }
+    self.dispatchQueue.async {
       self.configuration = configuration
       if self.isStarted {
         if let peripheralManager = self.peripheralManager {
@@ -207,8 +206,7 @@ class BluetoothController: NSObject {
   
   /// Starts the service.
   func start() {
-    self.dispatchQueue.async { [weak self] in
-      guard let self = self else { return }
+    self.dispatchQueue.async {
       guard self.centralManager == nil else {
         return
       }
@@ -238,8 +236,7 @@ class BluetoothController: NSObject {
   
   /// Stops the service.
   func stop() {
-    self.dispatchQueue.async { [weak self] in
-      guard let self = self else { return }
+    self.dispatchQueue.async {
       self.discoveryTimeoutTimersForPeripheralIdentifiers.values.forEach {
         $0.invalidate()
       }
@@ -289,8 +286,7 @@ class BluetoothController: NSObject {
     via services: [BerkananBluetoothService]? = nil,
     broadcastTimeToLive timeToLive: Int32 = Message.timeToLiveDefault
   ) {
-    self.dispatchQueue.async { [weak self] in
-      guard let self = self else { return }
+    self.dispatchQueue.async {
       self._send(message, via: services, broadcastTimeToLive: timeToLive)
     }
   }
@@ -317,30 +313,29 @@ class BluetoothController: NSObject {
     self.addToSeenMessageUUIDsIfNeeded(uuid: messageUUID)
     var isInBackground = false
     let actions = {
-      self.dispatchQueue.async { [weak self] in
-        guard let self = self else { return }
-        if !isInBackground,
-          let services = services,
-          !services.isEmpty,
-          !services.contains(where: { $0.rssi == nil }) {
-          services.compactMap({ $0.peripheral }).forEach {
-            self.enqueue(message: message, for: $0)
-          }
+      if !isInBackground,
+        let services = services,
+        !services.isEmpty,
+        !services.contains(where: { $0.rssi == nil }) {
+        services.compactMap({ $0.peripheral }).forEach {
+          self.enqueue(message: message, for: $0)
         }
-        else {
-          var messageCopy = message
-          messageCopy.timeToLive = timeToLive
-          self.discoveredPeripheralsWithBerkananServices.forEach {
-            self.enqueue(message: messageCopy, for: $0)
-          }
-        }
-        self.connectPeripheralsIfNeeded()
       }
+      else {
+        var messageCopy = message
+        messageCopy.timeToLive = timeToLive
+        self.discoveredPeripheralsWithBerkananServices.forEach {
+          self.enqueue(message: messageCopy, for: $0)
+        }
+      }
+      self.connectPeripheralsIfNeeded()
     }
-    #if canImport(UIKit) && !targetEnvironment(macCatalyst)
+    #if canImport(UIKit)
     DispatchQueue.main.async {
       isInBackground = (UIApplication.shared.applicationState == .background)
-      actions()
+      self.dispatchQueue.async {
+        actions()
+      }
     }
     #else
     actions()
@@ -407,7 +402,8 @@ class BluetoothController: NSObject {
   }
   
   @objc private func connectingTimeout(for peripheral: CBPeripheral) {
-    self.dispatchQueue.async {
+    self.dispatchQueue.async { [weak self] in
+      guard let self = self else { return }
       if peripheral.state != .connected {
         if #available(OSX 10.12, iOS 10.0, *) {
           os_log(
@@ -589,13 +585,14 @@ extension BluetoothController: CBCentralManagerDelegate {
       self.connectionStateObservationsForPeripheralIdentifiers[
         peripheral.identifier
         ] = peripheral.observe(\.state) { [weak self] (peripheral, _) in
+          guard let self = self else { return }
           if peripheral.state == .disconnected {
-            self?.connectedPeripherals.remove(peripheral)
-            self?.messagesForPeripherals.removeValue(forKey: peripheral)
-            self?.connectPeripheralsIfNeeded()
+            self.connectedPeripherals.remove(peripheral)
+            self.messagesForPeripherals.removeValue(forKey: peripheral)
+            self.connectPeripheralsIfNeeded()
           }
           else {
-            self?.connectedPeripherals.insert(peripheral)
+            self.connectedPeripherals.insert(peripheral)
           }
       }
       
@@ -614,14 +611,18 @@ extension BluetoothController: CBCentralManagerDelegate {
       }
     }
     self.connectPeripheralsIfNeeded()
-    DispatchQueue.main.async { [weak self] in
-      #if canImport(UIKit)
+    #if canImport(UIKit)
+    DispatchQueue.main.async {
       guard UIApplication.shared.applicationState != .background else {
         return
       }
-      #endif
-      self?.setupDiscoveryTimeoutTimer(for: peripheral)
+      self.dispatchQueue.async {
+        self.setupDiscoveryTimeoutTimer(for: peripheral)
+      }
     }
+    #else
+    self.setupDiscoveryTimeoutTimer(for: peripheral)
+    #endif
   }
   
   func centralManager(

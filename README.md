@@ -1,6 +1,6 @@
 # Berkanan SDK
 
-Berkanan SDK simplifies Bluetooth-powered mesh messaging between nearby apps. It's the framework used by [Berkanan](https://apps.apple.com/us/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Lite](https://apps.apple.com/us/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)).
+Berkanan SDK enables Bluetooth-powered mesh messaging between nearby apps. It's the framework used by [Berkanan](https://apps.apple.com/us/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Lite](https://apps.apple.com/us/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)).
 
 With Berkanan SDK apps can discover nearby apps, which also have the SDK integrated, and send them small messages via Bluetooth, even while in the background. The range for messages is about 70 meters, but they can reach further because the SDK automatically resends them upon receiving. The more apps use Berkanan SDK, the bigger the network and further the reach of the messages gets.
 

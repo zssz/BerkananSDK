@@ -7,7 +7,7 @@ import PackageDescription
 let package = Package(
   name: "BerkananSDK",
   platforms: [
-    .iOS(.v9), .macOS(.v10_13),
+    .iOS(.v9), .macOS(.v10_13), .watchOS(.v2), .tvOS(.v9)
   ],
   products: [
     .library(
@@ -21,8 +21,11 @@ let package = Package(
   ],
   targets: [
     .target(
+      name: "CBerkananSDK"),
+    .target(
       name: "BerkananSDK",
       dependencies: [
+        "CBerkananSDK",
         "SwiftProtobuf",
         "BerkananFoundation",
         "BerkananCompression"

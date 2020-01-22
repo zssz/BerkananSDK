@@ -6,9 +6,27 @@
 //
 
 import XCTest
+import CoreBluetooth
 @testable import BerkananSDK
 
 final class BerkananSDKTests: XCTestCase {
+  
+  func testCoreBluetoothInit() {
+    let service = BluetoothService.peripheralService
+    XCTAssertEqual(CBUUID(string: BluetoothService.UUIDPeripheralServiceString), service.uuid)
+    XCTAssertEqual(true, service.isPrimary)
+    let messageCharacteristic = BluetoothService.messageCharacteristic
+    XCTAssertEqual(CBUUID(string: BluetoothService.UUIDMessageCharacteristicString), messageCharacteristic.uuid)
+    XCTAssertEqual([.write], messageCharacteristic.properties)
+    XCTAssertEqual(nil, messageCharacteristic.value)
+    XCTAssertEqual([.writeable], messageCharacteristic.permissions)
+    let value = "Hello, World".data(using: .utf8)!
+    let configurationCharacteristic = BluetoothService.configurationCharacteristic(value: value)
+    XCTAssertEqual(CBUUID(string: BluetoothService.UUIDConfigurationCharacteristicString), configurationCharacteristic.uuid)
+    XCTAssertEqual([.read], configurationCharacteristic.properties)
+    XCTAssertEqual(value, configurationCharacteristic.value)
+    XCTAssertEqual([.readable], configurationCharacteristic.permissions)
+  }
   
   func testMessagePDU() {
     _testMessagePDU(

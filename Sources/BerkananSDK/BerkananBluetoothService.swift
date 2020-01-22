@@ -70,14 +70,14 @@ public class BerkananBluetoothService: NSObject {
   /// Combine version of the `berkananBluetoothService(_:didDiscover:)` delegate method.
   ///
   /// Note: Events are not delivered on the main thread.
-  @available(OSX 10.15, iOS 13.0, *)
+  @available(OSX 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
   lazy public private(set) var discoverServiceSubject =
     PassthroughSubject<BerkananBluetoothService, Never>()
   
   /// Combine version of the `berkananBluetoothService(_:didReceive:)` delegate method.
   ///
   /// Note: Events are not delivered on the main thread.
-  @available(OSX 10.15, iOS 13.0, *)
+  @available(OSX 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
   lazy public private(set) var receiveMessageSubject =
     PassthroughSubject<Message, Never>()
   
@@ -213,7 +213,7 @@ public class BerkananBluetoothService: NSObject {
     self.init(rawValue: cbPeripheralManagerAuthorizationStatus.rawValue)
   }
   
-  @available(iOS 13.0, OSX 10.15, *)
+  @available(iOS 13.0, OSX 10.15, tvOS 13.0, watchOS 6.0, *)
   public init?(cbManagerAuthorization: CBManagerAuthorization) {
     self.init(rawValue: cbManagerAuthorization.rawValue)
   }

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-#if canImport(UIKit)
+#if canImport(UIKit) && !os(watchOS)
 import UIKit.UIDevice
 #endif
 
@@ -18,7 +18,7 @@ extension User {
   /// and `UIDevice.current.name` for `name`.
   public static var current: User = {        
     return .with {
-      #if canImport(UIKit)
+      #if canImport(UIKit) && !os(watchOS)
       $0.identifier =
         UIDevice.current.identifierForVendor?.protobufValue() ?? PBUUID.random()
       $0.name = UIDevice.current.name

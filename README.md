@@ -20,8 +20,6 @@ Berkanan SDK does not send the messages to any central server or company — thi
 
 ## Integrating Berkanan SDK into Your App
 
-Currently, Berkanan SDK is limited to iOS and macOS. Android is planned and is coming soon. 🤞
-
 ### iOS
 
 To integrate Berkanan SDK into your iOS app, the easiest way is to use Xcode 11 or later. Open the .xcodeproj or .xcworkspace file of your app and follow these steps.

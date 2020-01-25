@@ -58,10 +58,7 @@ class BluetoothController: NSObject {
   private var connectingTimeoutTimersForPeripheralIdentifiers =
     [UUID : Timer]()
   
-  @objc dynamic private var connectedPeripherals = Set<CBPeripheral>()
-  
-  private var connectionStateObservationsForPeripheralIdentifiers =
-    [UUID : NSKeyValueObservation]()
+  private var connectedPeripherals = Set<CBPeripheral>()
   
   #if os(watchOS)
   private static let maxNumberOfConcurrentPeripheralConnections = 1
@@ -111,12 +108,22 @@ class BluetoothController: NSObject {
       .union(peripheralsToReadConfigurationsFrom)
   }
   
+  func handleConnectedPeripheralsChange() {
+    #if canImport(UIKit) && !targetEnvironment(macCatalyst) && !os(watchOS)
+    if self.connectedPeripherals.isEmpty {
+      self.endBackgroundTaskIfNeeded()
+    }
+    else {
+      self.beginBackgroundTaskIfNeeded()
+    }
+    #endif
+  }
+  
   // macCatalyst apps do not need background tasks.
   // watchOS apps do not have background tasks.
   #if canImport(UIKit) && !targetEnvironment(macCatalyst) && !os(watchOS)
-  private var connectedPeripheralsObservation: NSKeyValueObservation?
   private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier?
-  
+    
   private func beginBackgroundTaskIfNeeded() {
     guard self.backgroundTaskIdentifier == nil else { return }
     self.backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask {
@@ -141,16 +148,6 @@ class BluetoothController: NSObject {
     // macCatalyst apps do not need background support.
     // watchOS apps do not have background tasks.
     #if canImport(UIKit) && !targetEnvironment(macCatalyst) && !os(watchOS)
-    self.connectedPeripheralsObservation =
-      self.observe(\.connectedPeripherals) { [weak self] (_,_)  in
-        guard let self = self else { return }
-        if self.connectedPeripherals.isEmpty {
-          self.endBackgroundTaskIfNeeded()
-        }
-        else {
-          self.beginBackgroundTaskIfNeeded()
-        }
-    }
     let notificationCenter = NotificationCenter.default
     notificationCenter.addObserver(
       self,
@@ -272,7 +269,7 @@ class BluetoothController: NSObject {
       }
       self.discoveredPeripherals.removeAll()
       self.connectedPeripherals.removeAll()
-      self.connectionStateObservationsForPeripheralIdentifiers.removeAll()
+      self.handleConnectedPeripheralsChange()
       self.messagesForPeripherals.removeAll()
       self.seenMessageUUIDs.removeAllObjects()
       self.peripheralsToReadConfigurationsFrom.removeAll()
@@ -520,9 +517,7 @@ class BluetoothController: NSObject {
     self.cancelConnectionIfNeeded(for: peripheral)
     self.discoveredPeripherals.remove(peripheral)
     self.connectedPeripherals.remove(peripheral)
-    self.connectionStateObservationsForPeripheralIdentifiers[
-      peripheral.identifier
-      ] = nil
+    self.handleConnectedPeripheralsChange()
     self.discoveryTimeoutTimersForPeripheralIdentifiers[peripheral.identifier]?
       .invalidate()
     self.discoveryTimeoutTimersForPeripheralIdentifiers[peripheral.identifier] =
@@ -540,7 +535,7 @@ class BluetoothController: NSObject {
     guard peripheral.state != .disconnected else {
       return
     }
-    centralManager?.cancelPeripheralConnection(peripheral)
+    self.centralManager?.cancelPeripheralConnection(peripheral)
     if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
       os_log(
         "Central manager cancelled peripheral (uuid=%@ name='%@') connection",
@@ -549,6 +544,7 @@ class BluetoothController: NSObject {
         peripheral.name ?? ""
       )
     }
+    self.handleConnectionStateChange(for: peripheral)
   }
 }
 
@@ -619,22 +615,6 @@ extension BluetoothController: CBCentralManagerDelegate {
           RSSI.intValue
         )
       }
-      
-      self.connectionStateObservationsForPeripheralIdentifiers[
-        peripheral.identifier
-        ] = peripheral.observe(\.state) { [weak self] (peripheral, change) in
-          guard let self = self else { return }
-          guard change.newValue != change.oldValue else { return }
-          if peripheral.state == .disconnected {
-            self.connectedPeripherals.remove(peripheral)
-            self.messagesForPeripherals.removeValue(forKey: peripheral)
-            self.connectPeripheralsIfNeeded()
-          }
-          else {
-            self.connectedPeripherals.insert(peripheral)
-          }
-      }
-      
       self.peripheralsToReadConfigurationsFrom.insert(peripheral)
     }
     self.discoveredPeripherals.insert(peripheral)
@@ -680,6 +660,7 @@ extension BluetoothController: CBCentralManagerDelegate {
       peripheral.identifier]?.invalidate()
     self.connectingTimeoutTimersForPeripheralIdentifiers[
       peripheral.identifier] = nil
+    self.handleConnectionStateChange(for: peripheral)
     self._centralManager(central, didConnect: peripheral)
   }
   
@@ -723,6 +704,7 @@ extension BluetoothController: CBCentralManagerDelegate {
       )
     }
     self.cancelConnectionIfNeeded(for: peripheral)
+    self.handleConnectionStateChange(for: peripheral)
   }
   
   func centralManager(
@@ -753,6 +735,19 @@ extension BluetoothController: CBCentralManagerDelegate {
       }
     }
     self.cancelConnectionIfNeeded(for: peripheral)
+    self.handleConnectionStateChange(for: peripheral)
+  }
+  
+  func handleConnectionStateChange(for peripheral: CBPeripheral) {
+    if peripheral.state == .disconnected {
+      self.connectedPeripherals.remove(peripheral)
+      self.messagesForPeripherals.removeValue(forKey: peripheral)
+      self.connectPeripheralsIfNeeded()
+    }
+    else {
+      self.connectedPeripherals.insert(peripheral)
+    }
+    self.handleConnectedPeripheralsChange()
   }
 }
 
@@ -1251,7 +1246,7 @@ extension BluetoothController: CBPeripheralManagerDelegate {
     for request in requests {
       do {
         guard request.characteristic.uuid ==
-          BluetoothService.messageCharacteristic.uuid else {
+          CBUUID(string: BluetoothService.UUIDMessageCharacteristicString) else {
             throw CBATTError(.requestNotSupported)
         }
         guard let value = request.value,
@@ -1274,6 +1269,7 @@ extension BluetoothController: CBPeripheralManagerDelegate {
             // Drastic, but works
             self.centralManager?.cancelPeripheralConnection(peripheral)
             self.discoveredPeripherals.remove(peripheral)
+            self.handleConnectionStateChange(for: peripheral)
           }
         }
       }

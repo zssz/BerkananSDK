@@ -74,6 +74,13 @@ public class BerkananBluetoothService: NSObject {
   lazy public private(set) var discoverServiceSubject =
     PassthroughSubject<BerkananBluetoothService, Never>()
   
+  /// Convenience publisher to keep track of the number of services in range.
+  ///
+  /// Note: Events are not delivered on the main thread.
+  @available(OSX 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+  lazy public private(set) var numberOfServicesInRangeSubject =
+    PassthroughSubject<Int, Never>()
+  
   /// Combine version of the `berkananBluetoothService(_:didReceive:)` delegate method.
   ///
   /// Note: Events are not delivered on the main thread.
@@ -85,17 +92,24 @@ public class BerkananBluetoothService: NSObject {
   
   /// The RSSI of the remote service updated by the local service while in the foreground. If nil then the
   /// remote service is out of range.
-  @objc dynamic public internal(set) var rssi: NSNumber?
+  public internal(set) var rssi: NSNumber?
   
   /// The set of previously discovered remote services in range (their `rssi` is not nil) to the local service.
-  @objc dynamic public internal(set) var servicesInRange =
-    Set<BerkananBluetoothService>()
+  public internal(set) var servicesInRange = Set<BerkananBluetoothService>() {
+    didSet {
+      #if canImport(Combine)
+      if #available(OSX 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *) {
+        self.numberOfServicesInRangeSubject.send(servicesInRange.count)
+      }
+      #endif
+    }
+  }
   
   /// Returns true if the local service is started.
   public var isStarted: Bool { self.bluetoothController?.isStarted ?? false }
   
   /// The Bluetooth authorization status of the local service.
-  @objc dynamic public var bluetoothAuthorization: BluetoothAuthorization =
+  public var bluetoothAuthorization: BluetoothAuthorization =
     .notDetermined
   
   /// The controller used for Bluetooth communication by the local service internally.
@@ -192,7 +206,7 @@ public class BerkananBluetoothService: NSObject {
   }
 }
 
-@objc public enum BluetoothAuthorization: Int {
+public enum BluetoothAuthorization: Int {
   
   case notDetermined
   

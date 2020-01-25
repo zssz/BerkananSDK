@@ -12,6 +12,7 @@ let package = Package(
   products: [
     .library(
       name: "BerkananSDK",
+      type: .static,
       targets: ["BerkananSDK"]),
   ],
   dependencies: [
@@ -33,5 +34,6 @@ let package = Package(
     .testTarget(
       name: "BerkananSDKTests",
       dependencies: ["BerkananSDK"]),
-  ]
+  ],
+  swiftLanguageVersions: [.v5]
 )

@@ -60,7 +60,7 @@ class BluetoothController: NSObject {
   
   private var connectedPeripherals = Set<CBPeripheral>()
   
-  #if os(watchOS)
+  #if os(watchOS) || os(tvOS)
   private static let maxNumberOfConcurrentPeripheralConnections = 1
   #else
   private static let maxNumberOfConcurrentPeripheralConnections = 5

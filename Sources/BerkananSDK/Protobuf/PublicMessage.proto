@@ -11,9 +11,9 @@ import "User.proto";
 import "PBUUID.proto";
 
 // `PublicMessage` is used as a message payload, whose `text`
-// field intended for everyone's eyes. To use it, set its
+// field is intended for everyone's eyes. To use it, set its
 // `serializedData()` as the `payload` and `.publicMessage` for
-// `payload_type` of a `Message`.
+// `payload_type` of a `Message` instance.
 message PublicMessage {
   
   // The identifier of the public message.

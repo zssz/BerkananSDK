@@ -528,8 +528,6 @@ class BluetoothController: NSObject {
           self.flushPeripheral(peripheral)
         }
         else {
-          // Workaround to not get stuck in an infinite connection retry loop.
-          self.peripheralsToReadConfigurationsFrom.remove(peripheral)
           self.cancelConnectionIfNeeded(for: peripheral)
         }
         #else
@@ -570,7 +568,6 @@ class BluetoothController: NSObject {
     self.servicesOfPeripherals[peripheral]?.forEach {
       $0.rssi = nil
     }
-    self.messagesForPeripherals.removeValue(forKey: peripheral)
     if let services = self.servicesOfPeripherals[peripheral] {
       self.service?.servicesInRange.subtract(services)
     }
@@ -581,7 +578,6 @@ class BluetoothController: NSObject {
       .invalidate()
     self.discoveryTimeoutTimersForPeripheralIdentifiers[peripheral.identifier] =
     nil
-    self.peripheralsToReadConfigurationsFrom.remove(peripheral)
     self.servicesOfPeripherals.removeValue(forKey: peripheral)
   }
   
@@ -594,19 +590,19 @@ class BluetoothController: NSObject {
       peripheral.identifier]?.invalidate()
     self.connectionTimeoutTimersForPeripheralIdentifiers[
       peripheral.identifier] = nil
-    
-    guard peripheral.state != .disconnected else {
-      return
+    if peripheral.state != .disconnected {
+      self.centralManager?.cancelPeripheralConnection(peripheral)
+      if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
+        os_log(
+          "Central manager cancelled peripheral (uuid=%@ name='%@') connection",
+          log: self.log,
+          peripheral.identifier.description,
+          peripheral.name ?? ""
+        )
+      }
     }
-    self.centralManager?.cancelPeripheralConnection(peripheral)
-    if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
-      os_log(
-        "Central manager cancelled peripheral (uuid=%@ name='%@') connection",
-        log: self.log,
-        peripheral.identifier.description,
-        peripheral.name ?? ""
-      )
-    }
+    self.peripheralsToReadConfigurationsFrom.remove(peripheral)
+    self.messagesForPeripherals.removeValue(forKey: peripheral)
     self.handleConnectionStateChange(for: peripheral)
   }
 }
@@ -621,9 +617,9 @@ extension BluetoothController: CBCentralManagerDelegate {
         String(describing: central.state.rawValue)
       )
     }
+    self.stopCentralManager()
     switch central.state {
       case .poweredOn:
-        self.stopCentralManager()
         #if targetEnvironment(macCatalyst)
         // CoreBluetooth on macCatalyst doesn't discover services of iOS apps
         // running in the background. Therefore we scan for everything.
@@ -765,7 +761,6 @@ extension BluetoothController: CBCentralManagerDelegate {
       )
     }
     self.cancelConnectionIfNeeded(for: peripheral)
-    self.handleConnectionStateChange(for: peripheral)
   }
   
   func centralManager(
@@ -796,13 +791,11 @@ extension BluetoothController: CBCentralManagerDelegate {
       }
     }
     self.cancelConnectionIfNeeded(for: peripheral)
-    self.handleConnectionStateChange(for: peripheral)
   }
   
   func handleConnectionStateChange(for peripheral: CBPeripheral) {
     if peripheral.state == .disconnected {
       self.connectedPeripherals.remove(peripheral)
-      self.messagesForPeripherals.removeValue(forKey: peripheral)
       self.connectPeripheralsIfNeeded()
     }
     else {
@@ -848,7 +841,6 @@ extension BluetoothController: CBPeripheralDelegate {
   ) {
     guard error == nil, let services = peripheral.services,
       services.count > 0 else {
-        self.peripheralsToReadConfigurationsFrom.remove(peripheral)
         self.cancelConnectionIfNeeded(for: peripheral)
         return
     }
@@ -1185,9 +1177,9 @@ extension BluetoothController: CBPeripheralManagerDelegate {
           CBPeripheralManager.authorizationStatus()
         ) ?? .notDetermined
     }
+    self.stopPeripheralManager()
     switch peripheral.state {
       case .poweredOn:
-        self.stopPeripheralManager()
         let service = BluetoothService.peripheralService
         service.characteristics = [
           BluetoothService.messageCharacteristic,
@@ -1309,8 +1301,8 @@ extension BluetoothController: CBPeripheralManagerDelegate {
             }
             self.servicesOfPeripherals.removeValue(forKey: peripheral)
             // Drastic, but works
-            self.cancelConnectionIfNeeded(for: peripheral)
             self.discoveredPeripherals.remove(peripheral)
+            self.cancelConnectionIfNeeded(for: peripheral)
           }
           else {
             // We received a request from a peripheral that we don't know.

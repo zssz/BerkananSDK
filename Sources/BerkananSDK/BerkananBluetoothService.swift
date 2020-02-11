@@ -92,7 +92,17 @@ public class BerkananBluetoothService: NSObject {
   
   /// The RSSI of the remote service updated by the local service while in the foreground. If nil then the
   /// remote service is out of range.
-  public internal(set) var rssi: NSNumber?
+  /// We're avoiding KVO because it results in a crash when app is recompiled with Bitcode (FB7551937).
+  public internal(set) var rssi: NSNumber? {
+    didSet {
+      guard let peripheral = self.peripheral else { return }
+      NotificationCenter.default.post(
+        name: CBPeripheral.rssiDidChangeNotification,
+        object: peripheral,
+        userInfo: ["rssi" : rssi as Any]
+      )
+    }
+  }
   
   /// The set of previously discovered remote services in range (their `rssi` is not nil) to the local service.
   public internal(set) var servicesInRange = Set<BerkananBluetoothService>() {

@@ -106,6 +106,8 @@ class BluetoothController: NSObject {
   
   private var servicesOfPeripherals =
     [CBPeripheral : Set<BerkananBluetoothService>]()
+    
+  private var rssiOfPeripherals = [CBPeripheral : NSNumber?]()
   
   private var peripheralsToReadConfigurationsFrom = Set<CBPeripheral>()
   
@@ -290,10 +292,7 @@ class BluetoothController: NSObject {
       $0.invalidate()
     }
     self.connectionTimeoutTimersForPeripheralIdentifiers.removeAll()
-    self.discoveredPeripherals.forEach { peripheral in
-      peripheral.delegate = nil
-      self.cancelConnectionIfNeeded(for: peripheral)
-    }
+    self.discoveredPeripherals.forEach { self.flushPeripheral($0) }
     self.discoveredPeripherals.removeAll()
     self.connectedPeripherals.removeAll()
     self.messagesForPeripherals.removeAll()
@@ -310,7 +309,9 @@ class BluetoothController: NSObject {
     if self.peripheralManager?.isAdvertising ?? false {
       self.peripheralManager?.stopAdvertising()
     }
-    self.peripheralManager?.removeAllServices()
+    if self.peripheralManager?.state == .poweredOn {
+        self.peripheralManager?.removeAllServices()
+    }    
   }
   
   func send(
@@ -420,7 +421,7 @@ class BluetoothController: NSObject {
           )
         }
         self.setupConnectingTimeoutTimer(for: peripheral)
-        self.handleConnectionStateChange(for: peripheral)
+        self.connectedPeripherals.insert(peripheral)
       }
     }
     else {
@@ -568,17 +569,17 @@ class BluetoothController: NSObject {
     self.servicesOfPeripherals[peripheral]?.forEach {
       $0.rssi = nil
     }
+    self.rssiOfPeripherals[peripheral] = nil
     if let services = self.servicesOfPeripherals[peripheral] {
       self.service?.servicesInRange.subtract(services)
     }
-    self.cancelConnectionIfNeeded(for: peripheral)
     self.discoveredPeripherals.remove(peripheral)
-    self.connectedPeripherals.remove(peripheral)
     self.discoveryTimeoutTimersForPeripheralIdentifiers[peripheral.identifier]?
       .invalidate()
     self.discoveryTimeoutTimersForPeripheralIdentifiers[peripheral.identifier] =
     nil
     self.servicesOfPeripherals.removeValue(forKey: peripheral)
+    self.cancelConnectionIfNeeded(for: peripheral)
   }
   
   private func cancelConnectionIfNeeded(for peripheral: CBPeripheral) {
@@ -603,7 +604,8 @@ class BluetoothController: NSObject {
     }
     self.peripheralsToReadConfigurationsFrom.remove(peripheral)
     self.messagesForPeripherals.removeValue(forKey: peripheral)
-    self.handleConnectionStateChange(for: peripheral)
+    self.connectedPeripherals.remove(peripheral)
+    self.connectPeripheralsIfNeeded()
   }
 }
 
@@ -678,6 +680,7 @@ extension BluetoothController: CBCentralManagerDelegate {
     self.servicesOfPeripherals[peripheral]?.forEach {
       $0.rssi = RSSI
     }
+    self.rssiOfPeripherals[peripheral] = RSSI
     if let services = self.servicesOfPeripherals[peripheral] {
       if let service = self.service {
         if service.servicesInRange.union(services).count !=
@@ -717,7 +720,6 @@ extension BluetoothController: CBCentralManagerDelegate {
       peripheral.identifier]?.invalidate()
     self.connectingTimeoutTimersForPeripheralIdentifiers[
       peripheral.identifier] = nil
-    self.handleConnectionStateChange(for: peripheral)
     self._centralManager(central, didConnect: peripheral)
   }
   
@@ -791,16 +793,6 @@ extension BluetoothController: CBCentralManagerDelegate {
       }
     }
     self.cancelConnectionIfNeeded(for: peripheral)
-  }
-  
-  func handleConnectionStateChange(for peripheral: CBPeripheral) {
-    if peripheral.state == .disconnected {
-      self.connectedPeripherals.remove(peripheral)
-      self.connectPeripheralsIfNeeded()
-    }
-    else {
-      self.connectedPeripherals.insert(peripheral)
-    }
   }
 }
 
@@ -1094,6 +1086,7 @@ extension BluetoothController: CBPeripheralDelegate {
       var services = self.servicesOfPeripherals[peripheral] ?? Set()
       services.insert(remoteService)
       self.servicesOfPeripherals[peripheral] = services
+      services.forEach { $0.rssi = self.rssiOfPeripherals[peripheral] ?? nil }
       #if canImport(Combine)
       if #available(OSX 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *) {
         self.service?.discoverServiceSubject.send(remoteService)
@@ -1299,6 +1292,7 @@ extension BluetoothController: CBPeripheralManagerDelegate {
             self.servicesOfPeripherals[peripheral]?.forEach {
               $0.rssi = nil
             }
+            self.rssiOfPeripherals[peripheral] = nil
             self.servicesOfPeripherals.removeValue(forKey: peripheral)
             // Drastic, but works
             self.discoveredPeripherals.remove(peripheral)

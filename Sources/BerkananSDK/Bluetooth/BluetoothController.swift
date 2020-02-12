@@ -1289,10 +1289,6 @@ extension BluetoothController: CBPeripheralManagerDelegate {
             if let services = self.servicesOfPeripherals[peripheral] {
               self.service?.servicesInRange.subtract(services)
             }
-            self.servicesOfPeripherals[peripheral]?.forEach {
-              $0.rssi = nil
-            }
-            self.rssiOfPeripherals[peripheral] = nil
             self.servicesOfPeripherals.removeValue(forKey: peripheral)
             // Drastic, but works
             self.discoveredPeripherals.remove(peripheral)

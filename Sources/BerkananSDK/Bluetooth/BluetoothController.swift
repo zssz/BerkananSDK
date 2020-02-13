@@ -18,7 +18,7 @@ import CBerkananSDK
 extension TimeInterval {
   
   public static let peripheralDiscoveryTimeout: TimeInterval = 12
-  public static let peripheralConnectingTimeout: TimeInterval = 5
+  public static let peripheralConnectingTimeout: TimeInterval = 8
   public static let peripheralConnectionTimeout: TimeInterval = 3
 }
 
@@ -106,7 +106,7 @@ class BluetoothController: NSObject {
   
   private var servicesOfPeripherals =
     [CBPeripheral : Set<BerkananBluetoothService>]()
-    
+  
   private var rssiOfPeripherals = [CBPeripheral : NSNumber?]()
   
   private var peripheralsToReadConfigurationsFrom = Set<CBPeripheral>()
@@ -310,7 +310,7 @@ class BluetoothController: NSObject {
       self.peripheralManager?.stopAdvertising()
     }
     if self.peripheralManager?.state == .poweredOn {
-        self.peripheralManager?.removeAllServices()
+      self.peripheralManager?.removeAllServices()
     }    
   }
   
@@ -524,16 +524,7 @@ class BluetoothController: NSObject {
             peripheral.name ?? ""
           )
         }
-        #if targetEnvironment(macCatalyst)
-        if !(self.servicesOfPeripherals[peripheral]?.isEmpty ?? true) {
-          self.flushPeripheral(peripheral)
-        }
-        else {
-          self.cancelConnectionIfNeeded(for: peripheral)
-        }
-        #else
         self.flushPeripheral(peripheral)
-        #endif
       }
     }
   }
@@ -565,6 +556,8 @@ class BluetoothController: NSObject {
   }
   
   private func flushPeripheral(_ peripheral: CBPeripheral) {
+    self.peripheralsToReadConfigurationsFrom.remove(peripheral)
+    self.messagesForPeripherals.removeValue(forKey: peripheral)
     peripheral.delegate = nil
     self.servicesOfPeripherals[peripheral]?.forEach {
       $0.rssi = nil
@@ -602,8 +595,6 @@ class BluetoothController: NSObject {
         )
       }
     }
-    self.peripheralsToReadConfigurationsFrom.remove(peripheral)
-    self.messagesForPeripherals.removeValue(forKey: peripheral)
     self.connectedPeripherals.remove(peripheral)
     self.connectPeripheralsIfNeeded()
   }
@@ -762,6 +753,14 @@ extension BluetoothController: CBCentralManagerDelegate {
         error as CVarArg? ?? ""
       )
     }
+    if #available(iOS 12.0, macOS 10.14, macCatalyst 13.0, tvOS 12.0,
+        watchOS 5.0, *) {
+        if let error = error as? CBError,
+            error.code == CBError.operationNotSupported {
+            self.peripheralsToReadConfigurationsFrom.remove(peripheral)
+            self.messagesForPeripherals.removeValue(forKey: peripheral)
+        }
+    }
     self.cancelConnectionIfNeeded(for: peripheral)
   }
   
@@ -831,10 +830,15 @@ extension BluetoothController: CBPeripheralDelegate {
     _ peripheral: CBPeripheral,
     didDiscoverServices error: Error?
   ) {
-    guard error == nil, let services = peripheral.services,
-      services.count > 0 else {
-        self.cancelConnectionIfNeeded(for: peripheral)
-        return
+    guard error == nil else {
+      self.cancelConnectionIfNeeded(for: peripheral)
+      return
+    }
+    guard let services = peripheral.services, services.count > 0 else {
+      self.peripheralsToReadConfigurationsFrom.remove(peripheral)
+      self.messagesForPeripherals.removeValue(forKey: peripheral)
+      self.cancelConnectionIfNeeded(for: peripheral)
+      return
     }
     let servicesWithCharacteristicsToDiscover = services.filter {
       $0.characteristics == nil
@@ -1099,6 +1103,7 @@ extension BluetoothController: CBPeripheralDelegate {
       }
     }
     catch {
+      self.cancelConnectionIfNeeded(for: peripheral)
       if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
         os_log(
           "Processing value failed=%@",

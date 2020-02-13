@@ -210,6 +210,13 @@ class BluetoothController: NSObject {
       self.discoveredPeripherals.forEach {
         self.setupDiscoveryTimeoutTimer(for: $0)
       }
+      // Bug workaround: If Bluetooth was toggled while the app was in the
+      // background then scanning fails when the app becomes active.
+      // Restart scanning now.
+      if self.centralManager?.isScanning ?? false {
+        self.centralManager?.stopScan()
+        self._startScan()
+      }
     }
   }
   
@@ -613,40 +620,45 @@ extension BluetoothController: CBCentralManagerDelegate {
     self.stopCentralManager()
     switch central.state {
       case .poweredOn:
-        #if targetEnvironment(macCatalyst)
-        // CoreBluetooth on macCatalyst doesn't discover services of iOS apps
-        // running in the background. Therefore we scan for everything.
-        let services: [CBUUID]? = nil
-        #else
-        let services = [
-          CBUUID(string: BluetoothService.UUIDPeripheralServiceString)
-        ]
-        #endif
-        central.scanForPeripherals(
-          withServices: services,
-          options: [CBCentralManagerScanOptionAllowDuplicatesKey :
-            NSNumber(booleanLiteral: true)]
-        )
-        #if targetEnvironment(macCatalyst)
-        if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
-          os_log(
-            "Central manager scanning for peripherals with services=%@",
-            log: self.log,
-            services ?? ""
-          )
-        }
-        #else
-        if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
-          os_log(
-            "Central manager scanning for peripherals with services=%@",
-            log: self.log,
-            services
-          )
-        }
-      #endif
+        self._startScan()
       default:
         ()
     }
+  }
+  
+  private func _startScan() {
+    guard let central = self.centralManager else { return }
+    #if targetEnvironment(macCatalyst)
+    // CoreBluetooth on macCatalyst doesn't discover services of iOS apps
+    // running in the background. Therefore we scan for everything.
+    let services: [CBUUID]? = nil
+    #else
+    let services = [
+      CBUUID(string: BluetoothService.UUIDPeripheralServiceString)
+    ]
+    #endif
+    central.scanForPeripherals(
+      withServices: services,
+      options: [CBCentralManagerScanOptionAllowDuplicatesKey :
+        NSNumber(booleanLiteral: true)]
+    )
+    #if targetEnvironment(macCatalyst)
+    if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
+      os_log(
+        "Central manager scanning for peripherals with services=%@",
+        log: self.log,
+        services ?? ""
+      )
+    }
+    #else
+    if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
+      os_log(
+        "Central manager scanning for peripherals with services=%@",
+        log: self.log,
+        services
+      )
+    }
+    #endif
   }
   
   func centralManager(
@@ -754,12 +766,12 @@ extension BluetoothController: CBCentralManagerDelegate {
       )
     }
     if #available(iOS 12.0, macOS 10.14, macCatalyst 13.0, tvOS 12.0,
-        watchOS 5.0, *) {
-        if let error = error as? CBError,
-            error.code == CBError.operationNotSupported {
-            self.peripheralsToReadConfigurationsFrom.remove(peripheral)
-            self.messagesForPeripherals.removeValue(forKey: peripheral)
-        }
+      watchOS 5.0, *) {
+      if let error = error as? CBError,
+        error.code == CBError.operationNotSupported {
+        self.peripheralsToReadConfigurationsFrom.remove(peripheral)
+        self.messagesForPeripherals.removeValue(forKey: peripheral)
+      }
     }
     self.cancelConnectionIfNeeded(for: peripheral)
   }

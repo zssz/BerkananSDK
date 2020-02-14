@@ -7,7 +7,7 @@ import PackageDescription
 let package = Package(
   name: "BerkananSDK",
   platforms: [
-    .iOS(.v9), .macOS(.v10_13), .watchOS(.v2), .tvOS(.v9)
+    .iOS(.v9), .macOS(.v10_13), .watchOS(.v4), .tvOS(.v9)
   ],
   products: [
     .library(

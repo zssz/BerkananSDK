@@ -7,10 +7,10 @@
 //   https://github.com/apple/swift-protobuf/
 
 //
-// Copyright © 2019 IZE Ltd. and the project authors
+// Copyright © 2019-2020 IZE Ltd. and the project authors
 // Licensed under MIT License
 //
-// See LICENSE.txt for license information.
+// See LICENSE.md for license information.
 
 import Foundation
 import SwiftProtobuf

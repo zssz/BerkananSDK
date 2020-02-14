@@ -1,8 +1,8 @@
 //
-// Copyright © 2019 IZE Ltd. and the project authors
+// Copyright © 2019-2020 IZE Ltd. and the project authors
 // Licensed under MIT License
 //
-// See LICENSE.txt for license information.
+// See LICENSE.md for license information.
 //
 
 import Foundation
@@ -60,11 +60,27 @@ class BluetoothController: NSObject {
   private var connectionTimeoutTimersForPeripheralIdentifiers =
     [UUID : Timer]()
   
-  private var connectedPeripherals = Set<CBPeripheral>() {
+  private var connectingPeripheralIdentifiers = Set<UUID>() {
     didSet {
-      self.handleConnectedPeripheralsChange()
+      self.handleConnectingConnectedPeripheralIdentifiersChange()
     }
   }
+  
+  private var connectedPeripheralIdentifiers = Set<UUID>() {
+    didSet {
+      self.handleConnectingConnectedPeripheralIdentifiersChange()
+    }
+  }
+  
+  private var connectingConnectedPeripheralIdentifiers: Set<UUID> {
+    self.connectingPeripheralIdentifiers.union(
+      self.connectedPeripheralIdentifiers
+    )
+  }
+  
+  private var discoveringServicesPeripheralIdentifiers = Set<UUID>()
+  
+  private var readingConfigurationCharacteristics = Set<CBCharacteristic>()
   
   #if os(watchOS) || os(tvOS)
   private static let maxNumberOfConcurrentPeripheralConnections = 2
@@ -96,9 +112,9 @@ class BluetoothController: NSObject {
         }
         let message = Message(
           payloadType: .updatedConfiguration,
-          payload: nil,          
+          payload: nil,
           timeToLive: 0
-        )        
+        )
         self._send(message)
       }
     }
@@ -116,9 +132,10 @@ class BluetoothController: NSObject {
       .union(peripheralsToReadConfigurationsFrom)
   }
   
-  private func handleConnectedPeripheralsChange() {
+  private func handleConnectingConnectedPeripheralIdentifiersChange() {
     #if canImport(UIKit) && !targetEnvironment(macCatalyst) && !os(watchOS)
-    if self.connectedPeripherals.isEmpty {
+    if self.connectingPeripheralIdentifiers.isEmpty &&
+      self.connectedPeripheralIdentifiers.isEmpty {
       self.endBackgroundTaskIfNeeded()
     }
     else {
@@ -301,7 +318,10 @@ class BluetoothController: NSObject {
     self.connectionTimeoutTimersForPeripheralIdentifiers.removeAll()
     self.discoveredPeripherals.forEach { self.flushPeripheral($0) }
     self.discoveredPeripherals.removeAll()
-    self.connectedPeripherals.removeAll()
+    self.connectingPeripheralIdentifiers.removeAll()
+    self.connectedPeripheralIdentifiers.removeAll()
+    self.discoveringServicesPeripheralIdentifiers.removeAll()
+    self.readingConfigurationCharacteristics.removeAll()
     self.messagesForPeripherals.removeAll()
     self.seenMessageUUIDs.removeAllObjects()
     self.peripheralsToReadConfigurationsFrom.removeAll()
@@ -318,7 +338,7 @@ class BluetoothController: NSObject {
     }
     if self.peripheralManager?.state == .poweredOn {
       self.peripheralManager?.removeAllServices()
-    }    
+    }
   }
   
   func send(
@@ -397,7 +417,7 @@ class BluetoothController: NSObject {
     guard self.peripheralsToConnect.count > 0 else {
       return
     }
-    guard self.connectedPeripherals.count <
+    guard self.connectingConnectedPeripheralIdentifiers.count <
       BluetoothController.maxNumberOfConcurrentPeripheralConnections else {
         return
     }
@@ -406,7 +426,7 @@ class BluetoothController: NSObject {
     }
     disconnectedPeripherals.prefix(
       BluetoothController.maxNumberOfConcurrentPeripheralConnections -
-        self.connectedPeripherals.count
+        self.connectingConnectedPeripheralIdentifiers.count
     ).forEach {
       self.connectIfNeeded(peripheral: $0)
     }
@@ -428,7 +448,7 @@ class BluetoothController: NSObject {
           )
         }
         self.setupConnectingTimeoutTimer(for: peripheral)
-        self.connectedPeripherals.insert(peripheral)
+        self.connectingPeripheralIdentifiers.insert(peripheral.identifier)
       }
     }
     else {
@@ -565,7 +585,6 @@ class BluetoothController: NSObject {
   private func flushPeripheral(_ peripheral: CBPeripheral) {
     self.peripheralsToReadConfigurationsFrom.remove(peripheral)
     self.messagesForPeripherals.removeValue(forKey: peripheral)
-    peripheral.delegate = nil
     self.servicesOfPeripherals[peripheral]?.forEach {
       $0.rssi = nil
     }
@@ -591,7 +610,7 @@ class BluetoothController: NSObject {
       peripheral.identifier]?.invalidate()
     self.connectionTimeoutTimersForPeripheralIdentifiers[
       peripheral.identifier] = nil
-    if peripheral.state != .disconnected {
+    if peripheral.state == .connecting || peripheral.state == .connected {
       self.centralManager?.cancelPeripheralConnection(peripheral)
       if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
         os_log(
@@ -602,7 +621,15 @@ class BluetoothController: NSObject {
         )
       }
     }
-    self.connectedPeripherals.remove(peripheral)
+    peripheral.delegate = nil
+    self.connectingPeripheralIdentifiers.remove(peripheral.identifier)
+    self.connectedPeripheralIdentifiers.remove(peripheral.identifier)
+    self.discoveringServicesPeripheralIdentifiers.remove(peripheral.identifier)
+    peripheral.services?.forEach {
+      $0.characteristics?.forEach {
+        self.readingConfigurationCharacteristics.remove($0)
+      }
+    }
     self.connectPeripheralsIfNeeded()
   }
 }
@@ -723,6 +750,13 @@ extension BluetoothController: CBCentralManagerDelegate {
       peripheral.identifier]?.invalidate()
     self.connectingTimeoutTimersForPeripheralIdentifiers[
       peripheral.identifier] = nil
+    self.connectingPeripheralIdentifiers.remove(peripheral.identifier)
+    // Bug workaround: Ignore duplicate connect messages from CoreBluetooth
+    guard !self.connectedPeripheralIdentifiers.contains(
+      peripheral.identifier) else {
+        return
+    }
+    self.connectedPeripheralIdentifiers.insert(peripheral.identifier)
     self._centralManager(central, didConnect: peripheral)
   }
   
@@ -730,6 +764,15 @@ extension BluetoothController: CBCentralManagerDelegate {
     _ central: CBCentralManager,
     didConnect peripheral: CBPeripheral
   ) {
+    self.discoverServices(for: peripheral)
+  }
+  
+  private func discoverServices(for peripheral: CBPeripheral) {
+    guard !self.discoveringServicesPeripheralIdentifiers.contains(
+      peripheral.identifier) else {
+        return
+    }
+    self.discoveringServicesPeripheralIdentifiers.insert(peripheral.identifier)
     peripheral.delegate = self
     if peripheral.services == nil {
       let services = [
@@ -842,6 +885,7 @@ extension BluetoothController: CBPeripheralDelegate {
     _ peripheral: CBPeripheral,
     didDiscoverServices error: Error?
   ) {
+    self.discoveringServicesPeripheralIdentifiers.remove(peripheral.identifier)
     guard error == nil else {
       self.cancelConnectionIfNeeded(for: peripheral)
       return
@@ -960,16 +1004,21 @@ extension BluetoothController: CBPeripheralDelegate {
         string: BluetoothService.UUIDConfigurationCharacteristicString
       )
     }), self.shouldReadConfigurations(from: peripheral) {
-      peripheral.readValue(for: configurationCharacteristic)
-      if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
-        os_log(
-          "Peripheral (uuid=%@ name='%@') reading value for characteristic=%@ for service=%@",
-          log: self.log,
-          peripheral.identifier.description,
-          peripheral.name ?? "",
-          configurationCharacteristic.description,
-          service.description
-        )
+      if !self.readingConfigurationCharacteristics.contains(
+        configurationCharacteristic) {
+        self.readingConfigurationCharacteristics.insert(
+          configurationCharacteristic)
+        peripheral.readValue(for: configurationCharacteristic)
+        if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
+          os_log(
+            "Peripheral (uuid=%@ name='%@') reading value for characteristic=%@ for service=%@",
+            log: self.log,
+            peripheral.identifier.description,
+            peripheral.name ?? "",
+            configurationCharacteristic.description,
+            service.description
+          )
+        }
       }
     }
     
@@ -1083,7 +1132,7 @@ extension BluetoothController: CBPeripheralDelegate {
         )
       }
     }
-    
+    self.readingConfigurationCharacteristics.remove(characteristic)
     do {
       self.peripheralsToReadConfigurationsFrom.remove(peripheral)
       guard error == nil else {
@@ -1136,8 +1185,19 @@ extension BluetoothController: CBPeripheralDelegate {
         "Peripheral (uuid=%@ name='%@') did modify services=%@",
         log: self.log,
         peripheral.identifier.description,
-        peripheral.name ?? "", invalidatedServices
+        peripheral.name ?? "",
+        invalidatedServices
       )
+    }
+    if invalidatedServices.contains(where: {
+      $0.uuid == CBUUID(string: BluetoothService.UUIDPeripheralServiceString)
+    }) {
+      if let services = self.servicesOfPeripherals[peripheral] {
+        self.service?.servicesInRange.subtract(services)
+      }
+      self.servicesOfPeripherals.removeValue(forKey: peripheral)
+      self.peripheralsToReadConfigurationsFrom.insert(peripheral)
+      self.cancelConnectionIfNeeded(for: peripheral)
     }
   }
 }
@@ -1298,7 +1358,9 @@ extension BluetoothController: CBPeripheralManagerDelegate {
           message.isValid() else {
             throw CBATTError(.invalidPdu)
         }
-        receivedMessages.append(message)
+        if message.payloadType != .updatedConfiguration {
+          receivedMessages.append(message)
+        }
         if let peripheral = self.discoveredPeripherals.filter({
           $0.identifier == request.central.identifier
         }).first {
@@ -1307,8 +1369,7 @@ extension BluetoothController: CBPeripheralManagerDelegate {
               self.service?.servicesInRange.subtract(services)
             }
             self.servicesOfPeripherals.removeValue(forKey: peripheral)
-            // Drastic, but works
-            self.discoveredPeripherals.remove(peripheral)
+            self.peripheralsToReadConfigurationsFrom.insert(peripheral)
             self.cancelConnectionIfNeeded(for: peripheral)
           }
           else {

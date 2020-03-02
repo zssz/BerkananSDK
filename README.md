@@ -4,23 +4,24 @@
 [![Contributions](https://img.shields.io/badge/contributions-welcome-blue)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
-Berkanan SDK enables Bluetooth-powered mesh messaging between nearby apps. It's the framework used by [Berkanan](https://apps.apple.com/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Lite](https://apps.apple.com/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)).
+Berkanan SDK enables Bluetooth-powered mesh messaging between nearby apps. It's the framework used by [Berkanan Messenger](https://apps.apple.com/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Messenger Lite](https://apps.apple.com/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)).
 
-With Berkanan SDK, apps can discover nearby apps, which also have the SDK integrated, and send them small messages via Bluetooth. The range is about 70 meters, but they can reach further because the SDK automatically resends them upon receiving. The more apps use Berkanan SDK, the further the reach of the messages gets.
+With Berkanan SDK, apps can discover nearby apps, which also have the SDK integrated and Bluetooth turned on, and send them small messages. The range for these messages is about 70 meters, but they can reach further because the SDK automatically resends them upon receiving. The more apps use Berkanan SDK, the further the reach of the messages gets.
 
 ### Features and Limitations
 - Free and open-source: Contributions are welcome!
 - Bluetooth-powered: No need for Wi-Fi or cellular connectivity.
-- Background: On iOS, it works even while in the background.
+- Background: On iOS, it works even while in the background. However, background-running apps can't discover each other — the system enforces this policy.
 - Connectionless communication with no pairing, no sessions, and no limit on the number of apps.
 - For sending messages, the SDK uses [flooding](https://en.wikipedia.org/wiki/Flooding_(computer_networking)), where duplicates are filtered by tracking their identifiers and decreasing their time to live (TTL) by 1, until they reach 0, as they travel from app to app.
 - The message range limit between two devices is about 70 meters.
 - The data size limit is 512 bytes.
 - No built-in support for encryption, [acknowledgment](https://en.wikipedia.org/wiki/Acknowledgement_(data_networks)), or [store and forward](https://en.wikipedia.org/wiki/Store_and_forward). You have to roll your own if your use case requires it.
+- It's *not* a [Bluetooth Mesh Networking](https://www.bluetooth.com/specifications/mesh-specifications) implementation.
 - Supported operating systems: iOS 9.0 or later, watchOS 4.0 or later, tvOS 9.0 or later, macOS 10.13 or later.
 
 ### Privacy Policy
-Berkanan SDK does not send the messages to any central server or company — this can be verified by looking at its source code. If your app's messages contain sensitive information (e.g., a private text message), you should use encryption.
+Berkanan SDK does not send the messages to any central server or company.
 
 ## Integrating Berkanan SDK into your app
 
@@ -102,7 +103,7 @@ let receiveMessageCanceller = service.receiveMessageSubject
 }
 ```
 
-##### Stopping the service
+##### Stopping the local service
 
 ```swift
 service.stop()
@@ -110,4 +111,4 @@ service.stop()
 
 #### Sample app
 
-To see how [Berkanan Lite app](https://apps.apple.com/app/berkanan-messenger-lite/id1479731429) integrates Berkanan SDK, check out its [source code](https://github.com/zssz/BerkananLite).
+To see how [Berkanan Messenger Lite app](https://apps.apple.com/app/berkanan-messenger-lite/id1479731429) integrates Berkanan SDK, check out its [source code](https://github.com/zssz/BerkananLite).

@@ -4,7 +4,9 @@
 [![Contributions](https://img.shields.io/badge/contributions-welcome-blue)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
-Berkanan SDK enables Bluetooth mesh messaging between nearby apps. It's the framework used by [Berkanan Messenger](https://apps.apple.com/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Messenger Lite](https://apps.apple.com/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)).
+Berkanan SDK enables Bluetooth mesh messaging between nearby apps. It's the framework used by [Berkanan Messenger](https://apps.apple.com/app/berkanan-messenger/id1289061820) ([Product Hunt](https://www.producthunt.com/posts/berkanan), [TechCrunch](https://techcrunch.com/2018/09/27/berkanan-is-a-bluetooth-powered-group-messaging-app/)) and [Berkanan Messenger Lite](https://apps.apple.com/app/berkanan-messenger-lite/id1479731429) ([GitHub](https://github.com/zssz/BerkananLite)). 
+
+The goal is to create a decentralized mesh network for the people, powered by their device's Bluetooth antenna. People could rely on this network for texting in situations, like emergencies, when there's no other connectivity available — it could literally save lives.
 
 With Berkanan SDK, apps can discover nearby apps, which also have the SDK integrated and Bluetooth turned on, and send them small messages. The range for these messages is about 70 meters, but they can reach further because the SDK automatically resends them upon receiving. The more apps use Berkanan SDK, the further the reach of the messages gets.
 

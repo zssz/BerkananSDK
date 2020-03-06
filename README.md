@@ -59,22 +59,22 @@ let configuration = Configuration(
   userInfo: "My User Info".data(using: .utf8)!
 )
 // Throws if the configuration is too big or invalid.
-let service = try BerkananBluetoothService(configuration: configuration)
+let localService = try BerkananBluetoothService(configuration: configuration)
 ```
 
 ##### Starting a local service
 
 ```swift
-service.start()
+localService.start()
 ```
 
 ##### Discovering nearby services and their advertised configuration
 
 ```swift
-let discoverServiceCanceller = service.discoverServiceSubject
+let discoverServiceCanceller = localService.discoverServiceSubject
   .receive(on: RunLoop.main)
-  .sink { service in
-    print("Discovered \(service) with \(service.getConfiguration())")
+  .sink { remoteService in
+    print("Discovered \(remoteService) with \(remoteService.getConfiguration())")
 }
 ```
 
@@ -92,13 +92,13 @@ let message = Message(
 
 ```swift
 // Throws if the message is too big or invalid.
-try service.send(message)
+try localService.send(message)
 ```
 
 ##### Receiving messages
 
 ```swift
-let receiveMessageCanceller = service.receiveMessageSubject
+let receiveMessageCanceller = localService.receiveMessageSubject
   .receive(on: RunLoop.main)
   .sink { message in
     print("Received \(message.payloadType) \(message.payload)")
@@ -108,7 +108,7 @@ let receiveMessageCanceller = service.receiveMessageSubject
 ##### Stopping the local service
 
 ```swift
-service.stop()
+localService.stop()
 ```
 
 #### Sample app
